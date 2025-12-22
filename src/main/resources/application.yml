@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: credito-analise-worker
+  kafka:
+    bootstrap-servers: localhost:9095
+    consumer:
+      group-id: analise-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
