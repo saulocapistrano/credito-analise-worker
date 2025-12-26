@@ -2,7 +2,7 @@ spring:
   application:
     name: credito-analise-worker
   kafka:
-    bootstrap-servers: localhost:9095
+    bootstrap-servers: search-credit-kafka:9092
     consumer:
       group-id: analise-group
       auto-offset-reset: earliest
