@@ -11,7 +11,7 @@ O `credito-analise-worker` é um microsserviço Spring Boot que atua como consum
 - ✅ Consome mensagens do tópico Kafka `consulta-creditos-topic`
 - ✅ Group ID: `analise-group`
 - ✅ Porta da aplicação: `8081`
-- ✅ Kafka configurado na porta `localhost:9095`
+- ✅ Conecta ao Kafka via rede Docker (`search-credit-kafka:9092`)
 - ✅ Totalmente dockerizado e pronto para produção
 
 ## 🚀 Como Executar
@@ -20,36 +20,44 @@ O `credito-analise-worker` é um microsserviço Spring Boot que atua como consum
 
 - Java 17+
 - Maven 3.6+
-- Docker e Docker Compose (para execução com Kafka local)
+- Docker e Docker Compose
+- Rede Docker `search-credit-network` criada e Kafka do serviço `search-credit` rodando
 
-### Opção 1: Executar com Docker Compose (Recomendado)
+### Opção 1: Executar com Docker Compose (Produção)
 
-1. **Subir o Kafka e Zookeeper:**
+1. **Garantir que a rede Docker existe:**
    ```bash
-   docker-compose up -d
+   docker network create search-credit-network
    ```
+   (Ou verificar se já existe se o serviço `search-credit` já está rodando)
 
 2. **Compilar o projeto:**
    ```bash
    mvn clean package
    ```
 
-3. **Executar a aplicação:**
+3. **Subir o worker:**
    ```bash
-   mvn spring-boot:run
+   docker-compose up -d worker
    ```
 
-   Ou executar o JAR diretamente:
+4. **Verificar logs:**
    ```bash
-   java -jar target/credito-analise-worker-0.0.1-SNAPSHOT.jar
+   docker-compose logs -f worker
    ```
 
-### Opção 2: Executar apenas com Maven (requer Kafka externo)
+### Opção 2: Executar localmente com Maven (Desenvolvimento)
 
-Se você já tem um Kafka rodando em `localhost:9095`:
+Para desenvolvimento local, você pode sobrescrever a configuração do Kafka:
 
 ```bash
+export SPRING_KAFKA_BOOTSTRAP_SERVERS=localhost:9095
 mvn spring-boot:run
+```
+
+Ou executar o JAR diretamente:
+```bash
+java -jar target/credito-analise-worker-0.0.1-SNAPSHOT.jar
 ```
 
 ## 🐳 Docker
@@ -61,29 +69,30 @@ mvn clean package
 docker build -t credito-analise-worker:latest .
 ```
 
-### Executar o container
+### Executar o container manualmente
 
 ```bash
 docker run -p 8081:8081 \
-  -e SPRING_KAFKA_BOOTSTRAP_SERVERS=localhost:9095 \
+  --network search-credit-network \
+  -e SPRING_KAFKA_BOOTSTRAP_SERVERS=search-credit-kafka:9092 \
   credito-analise-worker:latest
 ```
 
-**Nota:** Se o Kafka estiver rodando em outro host, ajuste a variável de ambiente `SPRING_KAFKA_BOOTSTRAP_SERVERS`.
+**Importante:** O container deve estar na mesma rede Docker (`search-credit-network`) que o Kafka do serviço `search-credit`.
 
 ## 🧪 Como Testar
 
 ### Enviar mensagem de teste via Kafka Console Producer
 
-Com o Kafka rodando via Docker Compose:
+Com o Kafka do serviço `search-credit` rodando:
 
 ```bash
-# Entrar no container do Kafka
-docker exec -it credito-analise-worker-kafka-1 bash
+# Entrar no container do Kafka do search-credit
+docker exec -it search-credit-kafka bash
 
 # Enviar mensagem para o tópico
 kafka-console-producer.sh \
-  --broker-list localhost:9092 \
+  --broker-list search-credit-kafka:9092 \
   --topic consulta-creditos-topic
 ```
 
@@ -92,9 +101,9 @@ Digite uma mensagem e pressione Enter. A mensagem será consumida pelo worker e 
 ### Enviar mensagem via Docker (sem entrar no container)
 
 ```bash
-docker exec -it credito-analise-worker-kafka-1 \
+docker exec -it search-credit-kafka \
   kafka-console-producer.sh \
-  --broker-list localhost:9092 \
+  --broker-list search-credit-kafka:9092 \
   --topic consulta-creditos-topic
 ```
 
@@ -129,7 +138,7 @@ credito-analise-worker/
 │           └── br/com/analise/creditoanaliseworker/
 │               └── consumer/
 │                   └── CreditoConsumerTest.java # Testes automatizados
-├── docker-compose.yml                           # Kafka + Zookeeper
+├── docker-compose.yml                           # Configuração do worker
 ├── Dockerfile                                   # Imagem Docker da aplicação
 └── pom.xml
 ```
@@ -139,12 +148,15 @@ credito-analise-worker/
 ### Tópico Kafka
 - **Nome:** `consulta-creditos-topic`
 - **Group ID:** `analise-group`
-- **Bootstrap Servers:** `localhost:9095`
+- **Bootstrap Servers:** `search-credit-kafka:9092` (via rede Docker)
 
 ### Portas
 - **Aplicação:** `8081`
-- **Kafka:** `9095` (mapeado de `9092` interno)
-- **Zookeeper:** `2181`
+- **Kafka:** Conecta via rede Docker ao serviço `search-credit-kafka:9092`
+
+### Rede Docker
+- **Rede:** `search-credit-network` (external: true)
+- O worker deve estar na mesma rede que o Kafka do serviço `search-credit`
 
 ### Variáveis de Ambiente
 
